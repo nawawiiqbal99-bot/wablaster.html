@@ -32,7 +32,7 @@
     <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        <!-- Kolom Kiri: Pengaturan & Input (1 Kolom di Desktop) -->
+        <!-- Kolom Kiri: Pengaturan & Input -->
         <div class="space-y-6">
             
             <!-- Pengaturan Link & Template -->
@@ -43,10 +43,10 @@
                 
                 <div class="space-y-3">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Link Undangan Digital (GitHub):</label>
-                        <input type="text" id="invitationLink" value="https://usernameanda.github.io/undangan" 
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Base Link Undangan Digital (GitHub):</label>
+                        <input type="text" id="invitationLink" value="https://nawawiiqbal99-bot.github.io/WEDDING-PROJECT/?to=" 
                             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                            placeholder="https://...github.io/...">
+                            placeholder="https://...github.io/?to=" oninput="updatePreview()">
                     </div>
 
                     <div>
@@ -63,6 +63,7 @@ Tanpa mengurangi rasa hormat, sehubungan dengan keterbatasan jarak dan waktu, me
 Nawawi Iqbal & Zikratul Aini
 
 Untuk detail acara, Bapak/Ibu/Saudara/i dapat membuka tautan di bawah ini:
+
 {link}
 
 Merupakan suatu kehormatan dan kebahagiaan bagi kami apabila Bapak/Ibu/Saudara/i berkenan hadir.
@@ -113,7 +114,7 @@ IQBAL & IRA</textarea>
 
         </div>
 
-        <!-- Kolom Kanan: Antrean, Preview & Statistik (2 Kolom di Desktop) -->
+        <!-- Kolom Kanan: Antrean, Preview & Statistik -->
         <div class="lg:col-span-2 space-y-6">
 
             <!-- Statistik & Reset -->
@@ -160,7 +161,6 @@ IQBAL & IRA</textarea>
                             </tr>
                         </thead>
                         <tbody id="guestTableBody" class="divide-y divide-slate-100">
-                            <!-- Data akan dimasukkan lewat JS -->
                             <tr id="emptyRow">
                                 <td colspan="5" class="p-8 text-center text-slate-400">
                                     <i class="fa-solid fa-address-book text-3xl mb-2 block"></i>
@@ -206,14 +206,22 @@ IQBAL & IRA</textarea>
             updateStats();
         }
 
+        // Format nama untuk URL: Ubah spasi menjadi + dan encodestring khusus
+        function formatNameForUrl(name) {
+            return encodeURIComponent(name).replace(/%20/g, '+');
+        }
+
         function updatePreview() {
             const template = document.getElementById('messageTemplate').value;
-            const link = document.getElementById('invitationLink').value || '[Link Undangan]';
+            const baseUrl = document.getElementById('invitationLink').value || 'https://nawawiiqbal99-bot.github.io/WEDDING-PROJECT/?to=';
             
             // Contoh preview menggunakan nama "Budi Santoso"
+            const sampleName = 'Budi Santoso';
+            const formattedLink = baseUrl + formatNameForUrl(sampleName);
+
             let sampleText = template
-                .replace(/{nama}/g, 'Budi Santoso')
-                .replace(/{link}/g, link);
+                .replace(/{nama}/g, sampleName)
+                .replace(/{link}/g, formattedLink);
             
             document.getElementById('previewText').innerText = sampleText;
         }
@@ -242,7 +250,7 @@ IQBAL & IRA</textarea>
                 let parts = line.includes(',') ? line.split(',') : line.split('\t');
                 if(parts.length >= 2) {
                     let name = parts[0].trim();
-                    let phone = parts[1].trim().replace(/[^0-9]/g, ''); // Ambil angka saja
+                    let phone = parts[1].trim().replace(/[^0-9]/g, '');
                     if(name && phone) {
                         guests.push({ id: Date.now() + Math.random(), name: name, phone: phone, status: 'Belum' });
                         addedCount++;
@@ -264,14 +272,17 @@ IQBAL & IRA</textarea>
             if(!guest) return;
 
             const template = document.getElementById('messageTemplate').value;
-            const link = document.getElementById('invitationLink').value;
+            const baseUrl = document.getElementById('invitationLink').value;
 
-            // Personalisasi pesan untuk tamu spesifik
+            // Buat link spesifik tamu: gabungkan baseUrl + nama tamu (spasi diganti +)
+            const personalizedLink = baseUrl + formatNameForUrl(guest.name);
+
+            // Personalisasi pesan
             let personalizedMessage = template
                 .replace(/{nama}/g, guest.name)
-                .replace(/{link}/g, link);
+                .replace(/{link}/g, personalizedLink);
 
-            // Encode pesan untuk URL WhatsApp
+            // Encode seluruh pesan untuk URL WhatsApp
             const encodedMessage = encodeURIComponent(personalizedMessage);
             const waUrl = `https://wa.me/${guest.phone}?text=${encodedMessage}`;
 
@@ -279,7 +290,7 @@ IQBAL & IRA</textarea>
             guest.status = 'Terkirim';
             saveToLocalStorage();
 
-            // Buka link WhatsApp di tab/aplikasi baru
+            // Buka link WhatsApp di tab baru
             window.open(waUrl, '_blank');
         }
 
