@@ -89,9 +89,9 @@ IQBAL & IRA</textarea>
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-slate-600 mb-1">Nomor WhatsApp:</label>
-                        <input type="text" id="inputPhone" required placeholder="Contoh: 628123456789"
+                        <input type="text" id="inputPhone" required placeholder="Contoh: 08123456789 atau 628123456789"
                             class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                        <p class="text-[10px] text-slate-400 mt-0.5">Awali dengan 62 (tanpa tanda + atau 0 di depan)</p>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Otomatis diformat ke awalan 62</p>
                     </div>
                     <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 rounded-xl text-sm transition shadow-sm">
                         <i class="fa-solid fa-plus mr-1"></i> Tambah ke Daftar
@@ -99,19 +99,30 @@ IQBAL & IRA</textarea>
                 </form>
             </div>
 
-            <!-- Import Massal / Cepat & Akses Kontak HP -->
+            <!-- Import Massal / Cepat & Akses Kontak HP / File iOS -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <div class="flex justify-between items-center mb-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
                     <h2 class="font-bold text-base text-slate-700 flex items-center">
                         <i class="fa-solid fa-file-arrow-down text-emerald-600 mr-2"></i> Import Cepat (Paste)
                     </h2>
-                    <!-- Tombol Ambil dari Kontak HP -->
-                    <button type="button" onclick="pickContacts()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-200 transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-address-book text-emerald-600"></i> Pilih dari HP
-                    </button>
+                    
+                    <!-- Tombol Impor Kontak -->
+                    <div class="flex flex-wrap gap-1.5">
+                        <!-- Akses Kontak HP Native (Chrome/Android) -->
+                        <button type="button" onclick="pickContacts()" title="Gunakan di Android / Chrome" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-1.5 rounded-lg border border-emerald-200 transition flex items-center gap-1">
+                            <i class="fa-solid fa-address-book text-emerald-600"></i> Kontak HP
+                        </button>
+
+                        <!-- Upload File vCard/CSV (Untuk iPhone / iOS) -->
+                        <button type="button" onclick="document.getElementById('fileInput').click()" title="Gunakan di iPhone / iOS" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1">
+                            <i class="fa-solid fa-file-import text-slate-600"></i> vCard / CSV
+                        </button>
+                        <input type="file" id="fileInput" accept=".vcf, .vcard, .csv" class="hidden" onchange="handleFileUpload(event)">
+                    </div>
                 </div>
+
                 <p class="text-xs text-slate-500 mb-2">Format baris: <code class="bg-slate-100 text-slate-700 px-1 py-0.5 rounded">Nama, NomorHP</code> (pisahkan dengan koma atau tab)</p>
-                <textarea id="bulkData" rows="4" placeholder="Budi Santoso, 628123456789&#10;Siti Aminah, 628987654321"
+                <textarea id="bulkData" rows="4" placeholder="Budi Santoso, 08123456789&#10;Siti Aminah, 628987654321"
                     class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-2"></textarea>
                 <button onclick="processBulkImport()" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium py-2 rounded-xl text-sm transition shadow-sm">
                     <i class="fa-solid fa-upload mr-1"></i> Import Daftar Tamu
@@ -229,7 +240,7 @@ IQBAL & IRA</textarea>
             return cleaned;
         }
 
-        // Fungsi Memilih Kontak dari HP via Contact Picker API
+        // 1. Memilih Kontak dari HP via Contact Picker API (Android / Chrome)
         async function pickContacts() {
             const props = ['name', 'tel'];
             const opts = { multiple: true };
@@ -250,11 +261,7 @@ IQBAL & IRA</textarea>
                         });
 
                         if (lines.length > 0) {
-                            const bulkDataElem = document.getElementById('bulkData');
-                            const currentVal = bulkDataElem.value.trim();
-                            const newText = lines.join('\n');
-                            
-                            bulkDataElem.value = currentVal ? `${currentVal}\n${newText}` : newText;
+                            appendBulkText(lines.join('\n'));
                             alert(`Berhasil mengambil ${lines.length} kontak dari HP! Klik "Import Daftar Tamu" untuk memasukkannya ke tabel.`);
                         }
                     }
@@ -262,8 +269,67 @@ IQBAL & IRA</textarea>
                     console.error('Error saat mengambil kontak:', err);
                 }
             } else {
-                alert('Fitur "Pilih dari HP" hanya didukung di Chrome Android / browser seluler modern yang mendukung Contact Picker API. Jika di laptop/PC, gunakan paste manual.');
+                alert('Fitur "Kontak HP" langsung hanya didukung di Chrome Android.\n\nUntuk iPhone/iOS: Gunakan tombol "vCard / CSV" di sampingnya untuk mengunggah file kontak yang diekspor dari aplikasi Kontak iPhone.');
             }
+        }
+
+        // 2. Membaca File Kontak .vcf (vCard) atau .csv (Khusus iPhone / Universal)
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const content = e.target.result;
+                let lines = [];
+
+                if (file.name.endsWith('.vcf') || file.name.endsWith('.vcard')) {
+                    // Parsing file vCard dari iOS / iPhone
+                    const vcards = content.split('BEGIN:VCARD');
+                    vcards.forEach(vcard => {
+                        let nameMatch = vcard.match(/FN:(.*)/);
+                        let telMatch = vcard.match(/TEL.*:(.*)/);
+
+                        if (nameMatch && telMatch) {
+                            let name = nameMatch[1].trim();
+                            let phone = formatPhoneNumber(telMatch[1].trim());
+                            if (name && phone) {
+                                lines.push(`${name}, ${phone}`);
+                            }
+                        }
+                    });
+                } else if (file.name.endsWith('.csv')) {
+                    // Parsing file CSV
+                    const csvLines = content.split('\n');
+                    csvLines.forEach(line => {
+                        let parts = line.split(',');
+                        if (parts.length >= 2) {
+                            let name = parts[0].trim();
+                            let phone = formatPhoneNumber(parts[1].trim());
+                            if (name && phone) lines.push(`${name}, ${phone}`);
+                        }
+                    });
+                }
+
+                if (lines.length > 0) {
+                    appendBulkText(lines.join('\n'));
+                    alert(`Berhasil membaca ${lines.length} kontak dari file! Klik "Import Daftar Tamu".`);
+                } else {
+                    alert('Tidak ada data kontak yang valid ditemukan dalam file.');
+                }
+                
+                // Reset input file
+                event.target.value = '';
+            };
+
+            reader.readAsText(file);
+        }
+
+        // Helper untuk memasukkan teks ke textarea Import Cepat
+        function appendBulkText(text) {
+            const bulkDataElem = document.getElementById('bulkData');
+            const currentVal = bulkDataElem.value.trim();
+            bulkDataElem.value = currentVal ? `${currentVal}\n${text}` : text;
         }
 
         function updatePreview() {
