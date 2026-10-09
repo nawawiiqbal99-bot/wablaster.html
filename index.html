@@ -99,11 +99,17 @@ IQBAL & IRA</textarea>
                 </form>
             </div>
 
-            <!-- Import Massal / Cepat -->
+            <!-- Import Massal / Cepat & Akses Kontak HP -->
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="font-bold text-base mb-3 flex items-center text-slate-700">
-                    <i class="fa-solid fa-file-arrow-down text-emerald-600 mr-2"></i> Import Cepat (Paste)
-                </h2>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="font-bold text-base text-slate-700 flex items-center">
+                        <i class="fa-solid fa-file-arrow-down text-emerald-600 mr-2"></i> Import Cepat (Paste)
+                    </h2>
+                    <!-- Tombol Ambil dari Kontak HP -->
+                    <button type="button" onclick="pickContacts()" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-200 transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-address-book text-emerald-600"></i> Pilih dari HP
+                    </button>
+                </div>
                 <p class="text-xs text-slate-500 mb-2">Format baris: <code class="bg-slate-100 text-slate-700 px-1 py-0.5 rounded">Nama, NomorHP</code> (pisahkan dengan koma atau tab)</p>
                 <textarea id="bulkData" rows="4" placeholder="Budi Santoso, 628123456789&#10;Siti Aminah, 628987654321"
                     class="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-2"></textarea>
@@ -211,6 +217,55 @@ IQBAL & IRA</textarea>
             return encodeURIComponent(name).replace(/%20/g, '+');
         }
 
+        // Format nomor HP agar standar Indonesia (Awali 62)
+        function formatPhoneNumber(phone) {
+            if (!phone) return '';
+            // Hapus karakter selain angka
+            let cleaned = phone.replace(/[^0-9]/g, '');
+            // Jika diawali '08', ubah '0' menjadi '62'
+            if (cleaned.startsWith('0')) {
+                cleaned = '62' + cleaned.substring(1);
+            }
+            return cleaned;
+        }
+
+        // Fungsi Memilih Kontak dari HP via Contact Picker API
+        async function pickContacts() {
+            const props = ['name', 'tel'];
+            const opts = { multiple: true };
+
+            if ('contacts' in navigator && 'ContactsManager' in window) {
+                try {
+                    const contacts = await navigator.contacts.select(props, opts);
+                    if (contacts.length > 0) {
+                        let lines = [];
+                        contacts.forEach(contact => {
+                            let name = contact.name && contact.name.length > 0 ? contact.name[0] : '';
+                            let rawTel = contact.tel && contact.tel.length > 0 ? contact.tel[0] : '';
+                            let formattedTel = formatPhoneNumber(rawTel);
+
+                            if (name && formattedTel) {
+                                lines.push(`${name}, ${formattedTel}`);
+                            }
+                        });
+
+                        if (lines.length > 0) {
+                            const bulkDataElem = document.getElementById('bulkData');
+                            const currentVal = bulkDataElem.value.trim();
+                            const newText = lines.join('\n');
+                            
+                            bulkDataElem.value = currentVal ? `${currentVal}\n${newText}` : newText;
+                            alert(`Berhasil mengambil ${lines.length} kontak dari HP! Klik "Import Daftar Tamu" untuk memasukkannya ke tabel.`);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error saat mengambil kontak:', err);
+                }
+            } else {
+                alert('Fitur "Pilih dari HP" hanya didukung di Chrome Android / browser seluler modern yang mendukung Contact Picker API. Jika di laptop/PC, gunakan paste manual.');
+            }
+        }
+
         function updatePreview() {
             const template = document.getElementById('messageTemplate').value;
             const baseUrl = document.getElementById('invitationLink').value || 'https://nawawiiqbal99-bot.github.io/WEDDING-PROJECT/?to=';
@@ -229,7 +284,8 @@ IQBAL & IRA</textarea>
         function addSingleGuest(e) {
             e.preventDefault();
             const name = document.getElementById('inputName').value.trim();
-            const phone = document.getElementById('inputPhone').value.trim();
+            const rawPhone = document.getElementById('inputPhone').value.trim();
+            const phone = formatPhoneNumber(rawPhone);
 
             if(name && phone) {
                 guests.push({ id: Date.now(), name: name, phone: phone, status: 'Belum' });
@@ -250,7 +306,7 @@ IQBAL & IRA</textarea>
                 let parts = line.includes(',') ? line.split(',') : line.split('\t');
                 if(parts.length >= 2) {
                     let name = parts[0].trim();
-                    let phone = parts[1].trim().replace(/[^0-9]/g, '');
+                    let phone = formatPhoneNumber(parts[1].trim());
                     if(name && phone) {
                         guests.push({ id: Date.now() + Math.random(), name: name, phone: phone, status: 'Belum' });
                         addedCount++;
